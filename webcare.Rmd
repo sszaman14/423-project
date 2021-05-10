@@ -1,0 +1,108 @@
+---
+title: "webcare"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+library(car)
+newdat2 = read.csv("/Users/zhouzhengbo/Downloads/423/webcare.csv")
+#newdat2
+fit = glm(nextbook ~ logbook + time + respond + factor(hotel_id) + nonverbal, family=poisson,data=newdat2)
+summary(fit)
+vif(fit)
+
+```
+```{r}
+fit2 = glm(nextbook ~ logbook + time + respond + factor(hotel_id) + info, family=poisson,data=newdat2)
+summary(fit2)
+vif(fit2)
+```
+```{r}
+fit3 = glm(nextbook ~ logbook + time + respond + factor(hotel_id) + apology, family=poisson,data=newdat2)
+summary(fit3)
+vif(fit3)
+```
+```{r}
+fit4 = glm(nextbook ~ logbook + time + respond + factor(hotel_id)  +sighotel+ sigmanager+sigdepart+signame, family=poisson,data=newdat2)
+summary(fit4)
+#predict(fit4, data.frame(logbook=4.00733318523247, time =0.402464065708419 ,respond = 1, hotel_id=1,sighotel=0), type="resp")
+vif(fit4)
+```
+```{r}
+#newdat2[,-2]
+#cor(newdat2$logbook,newdat2$volume,newdat2$info)
+#cor(newdat2[c(3,5,8,9,15)])
+cor(newdat2[c(21,22,23,24,25)])
+fit5 = glm(nextbook ~ logbook + time + respond + factor(hotel_id)   +  defensive + invitecont  + explain  +  nonverbal     + apology+ compensate+ chanchange+gratitude + info+ personalize, family=poisson,data=newdat2)
+summary(fit5)
+vif(fit5)
+#cor(newdat2[,3:25])
+```
+```{r}
+cor(newdat2[,10:20])
+
+```
+```{r}
+cor(newdat2[,c(4,10:25)])
+```
+```{r}
+fit6 = glm(nextbook ~ ., family=poisson,data=newdat2[,3:25])
+summary(fit6)
+vif(fit6)
+```
+```{r}
+fit7 = glm(nextbook ~ logbook + time + respond + factor(hotel_id) + defensive + invitecont  + explain  +  nonverbal + apology+ compensate+ chanchange+gratitude + info+ personalize+sighotel+ sigmanager+sigdepart+signame, family=poisson,data=newdat2[,3:25])
+summary(fit7)
+plot(fit7)
+vif(fit7)
+```
+```{r}
+fit8 = glm(nextbook ~ logbook + time + respond + factor(hotel_id) + defensive + invitecont  + explain  +  nonverbal + apology+ compensate+ chanchange+gratitude + info+ sighotel +sigdepart+signame, family=poisson,data=newdat2[,3:25])
+summary(fit8)
+#plot(fit8)
+vif(fit8)
+#fit8 = glm(nextbook ~ logbook+time+respond + factor(hotel_id) + apology  , family=poisson,data=newdat2[,3:25])
+#predict(fit8, data.frame(logbook = newdat2[,c(5)],time = newdat2[,c(8)], hotel_id = newdat2[,c(3)],respond = newdat2[,c(9)], apology =newdat2[,c(15)] ), type="resp")
+#1145rows
+```
+```{r}
+fit9 = glm(nextbook ~ logbook + time + respond + factor(hotel_id) + defensive + invitecont  + explain  +  nonverbal + apology+compensate+ chanchange+gratitude+I(gratitude^2) + info+ sighotel +sigdepart+signame+sigstaff, family=poisson,data=newdat2[,3:25])
+summary(fit9)
+#plot(fit8)
+vif(fit9)
+```
+```{r}
+fit10 = glm(nextbook ~ logbook + time + respond + factor(hotel_id) + defensive + invitecont  +  nonverbal + apology+poly(compensate,3)+ chanchange+gratitude+I(gratitude^2) + info+ sighotel +sigdepart+sigstaff, family=poisson,data=newdat2[,3:25])
+summary(fit10)
+vif(fit10)
+```
+```{r}
+newdat_model = read.csv("/Users/zhouzhengbo/Downloads/423/book2.csv")
+newdat_model
+```
+
+
