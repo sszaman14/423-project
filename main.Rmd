@@ -1,0 +1,106 @@
+---
+title: "main"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+##question 1
+#sigstaff and sigdepart are highly corrolated.
+```{r}
+library(glmnet);library(car)
+newdat = read.csv("/Users/zhouzhengbo/Downloads/423/webcare.csv")
+modifydata = newdat[,3:25]
+set.seed(12345)
+train = runif(nrow(modifydata))<.5 
+#modify the path 
+cor(newdat[c(21,22,23,24,25)])
+
+```
+##question 2
+#tailor is highly correlated with some variable
+```{r}
+cor(newdat[,10:20])
+```
+##question 3
+#relationship between nextbook and other webcare variable
+```{r}
+cor(newdat[,c(4,10:25)])
+```
+##question 4
+#Fit a regression with all of the original variables.
+```{r}
+fit1 = glm(nextbook ~ ., family=poisson,data=modifydata,subset = train)
+summary(fit1)
+vif(fit1)
+```
+##fit a model using combined model
+# mean is 21447.78 AIC = 8115.6
+```{r}
+fit2 = glm(nextbook ~ .-tailor-sigstaff, family=poisson,data=modifydata,subset = train)
+plot(fit, which=1, pch=16, cex=.8)
+yhat = predict(fit2, modifydata[!train,])
+mean((modifydata$nextbook[!train] - yhat)^2) 
+summary(fit2)
+vif(fit2)
+```
+##question 6: find other model using regulation
+For stepwise model MEAN IS 21447.84 AIC = 8108.1
+```{r}
+#stepwise model
+fit3 = step(fit2)
+yhat = predict(fit3, modifydata[!train,])
+mean((modifydata$nextbook[!train] - yhat)^2)        # compute test set MSE
+summary(fit3)
+```
+```{r}
+#ridge model
+# mean is 1700.144
+x = model.matrix(nextbook ~ ., modifydata)
+fit.ridge = glmnet(x[train,], modifydata$nextbook[train], alpha=0) # alpha=0 means ridge
+plot(fit.ridge, xvar="lambda")
+fit.cv = cv.glmnet(x[train,], modifydata$nextbook[train], alpha=0) # find optimal lambda
+fit.cv$lambda.min        # optimal value of lambda
+abline(v=log(fit.cv$lambda.min), col=2)
+plot(fit.cv)          # plot MSE vs. log(lambda)
+yhat = predict(fit.ridge, s=fit.cv$lambda.min, newx=x[!train,])  # find yhat for best model
+mean((modifydata$nextbook[!train] - yhat)^2)      # compute test set MSE
+
+```
+```{r}
+#lasso model
+#mean us 1716.593
+fit.lasso = glmnet(x[train,], modifydata$nextbook[train], alpha=1) # lambda=1 means lasso
+plot(fit.lasso, xvar="lambda")
+fit.cv = cv.glmnet(x[train,], modifydata$nextbook[train], alpha=1)
+plot(fit.cv)
+abline(v=log(fit.cv$lambda.min), col=2)
+abline(v=log(fit.cv$lambda.1se), col=3)
+yhat = predict(fit.lasso, s=fit.cv$lambda.min, newx=x[!train,])
+mean((modifydata$nextbook[!train] - yhat)^2)
+```
+
+
+
