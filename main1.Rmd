@@ -1,0 +1,185 @@
+---
+title: "main"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+##question 1
+#sigstaff and sigdepart are highly corrolated.
+```{r}
+library(glmnet);library(car)
+#modify the path
+newdat = read.csv("/Users/zhouzhengbo/Downloads/423/webcare.csv")
+modifydata = newdat[,3:25]
+set.seed(12345)
+modifydata$hotel_id = as.factor(modifydata$hotel_id)
+#train = runif(nrow(modifydata))<.8 
+train = runif(nrow(modifydata))<.5
+#modify the path 
+cor(newdat[c(21,22,23,24,25)])
+
+```
+##question 2
+#tailor is highly correlated with some variable
+```{r}
+cor(newdat[,10:20])
+```
+##question 3
+#relationship between nextbook and other webcare variable
+```{r}
+cor(modifydata,modifydata$nextbook)
+```
+##question 4
+#Fit a regression with all of the original variables.
+```{r}
+fit1 = glm(nextbook ~ ., family=poisson,data=modifydata,subset = train)
+summary(fit1)
+vif(fit1)
+```
+##fit a model using combined model
+# mean is 1684.642 0.5 2199.552 0.8 AIC = 8115.6
+```{r}
+
+fit2 = glm(nextbook ~ .-tailor-sigstaff, family=poisson,data=modifydata,subset = train)
+plot(fit2, which=1, pch=16, cex=.8)
+yhat = predict(fit2, modifydata[!train,],type='response')
+mean((modifydata$nextbook[!train] - yhat)^2) 
+summary(fit2)
+vif(fit2)
+```
+##question 6: find other model using regulation
+For stepwise model MEAN IS 1688.301 0.5 2205.5 0.8 AIC = 8108.1
+```{r}
+#stepwise model
+fit3 = step(fit2)
+yhat = predict(fit3, modifydata[!train,],type='response')
+mean((modifydata$nextbook[!train] - yhat)^2)        # compute test set MSE
+summary(fit3)
+```
+```{r}
+#ridge model
+# mean is 1700.144 0.5 2163.9 0.8
+x = model.matrix(nextbook ~ ., modifydata)
+fit.ridge = glmnet(x[train,], modifydata$nextbook[train], alpha=0) # alpha=0 means ridge
+plot(fit.ridge, xvar="lambda")
+fit.cv = cv.glmnet(x[train,], modifydata$nextbook[train], alpha=0) # find optimal lambda
+fit.cv$lambda.min        # optimal value of lambda
+abline(v=log(fit.cv$lambda.min), col=2)
+plot(fit.cv)          # plot MSE vs. log(lambda)
+yhat = predict(fit.ridge, s=fit.cv$lambda.min, newx=x[!train,])  # find yhat for best model
+mean((modifydata$nextbook[!train] - yhat)^2)      # compute test set MSE
+fit.ridge2 = glmnet(x[train,], modifydata$nextbook[train], alpha=0, lambda = fit.cv$lambda.min)
+fit.ridge2$beta
+```
+```{r}
+#lasso model
+#mean us 1716.593 0.5 2114.043 0.8
+fit.lasso = glmnet(x[train,], modifydata$nextbook[train], alpha=1) # lambda=1 means lasso
+plot(fit.lasso, xvar="lambda")
+fit.cv = cv.glmnet(x[train,], modifydata$nextbook[train], alpha=1)
+plot(fit.cv)
+abline(v=log(fit.cv$lambda.min), col=2)
+abline(v=log(fit.cv$lambda.1se), col=3)
+yhat = predict(fit.lasso, s=fit.cv$lambda.min, newx=x[!train,])
+mean((modifydata$nextbook[!train] - yhat)^2)
+summary(fit.lasso)
+```
+
+```{r}
+#ridge model + interaction 
+#mean 1708.738 0.5 2157.93 0.8
+x = model.matrix(nextbook ~ hotel_id + logbook + bookings + volume + time + respond *(tailor + defensive + invitecont + explain + nonverbal + apology + compensate + chanchange + gratitude + info + personalize + signame + sigdepart + sighotel + sigmanager + sigstaff) , modifydata)
+fit.ridge = glmnet(x[train,], modifydata$nextbook[train], alpha=0) # alpha=0 means ridge
+plot(fit.ridge, xvar="lambda")
+fit.cv = cv.glmnet(x[train,], modifydata$nextbook[train], alpha=0) # find optimal lambda
+fit.cv$lambda.min        # optimal value of lambda
+abline(v=log(fit.cv$lambda.min), col=2)
+plot(fit.cv)          # plot MSE vs. log(lambda)
+yhat = predict(fit.ridge, s=fit.cv$lambda.min, newx=x[!train,])  # find yhat for best model
+mean((modifydata$nextbook[!train] - yhat)^2)
+```
+```{r}
+#lasso model + interaction
+#mean 1716.738 0.5 2112.229 0.8
+fit.lasso = glmnet(x[train,], modifydata$nextbook[train], alpha=1) # lambda=1 means lasso
+plot(fit.lasso, xvar="lambda")
+fit.cv = cv.glmnet(x[train,], modifydata$nextbook[train], alpha=1)
+plot(fit.cv)
+abline(v=log(fit.cv$lambda.min), col=2)
+abline(v=log(fit.cv$lambda.1se), col=3)
+yhat = predict(fit.lasso, s=fit.cv$lambda.min, newx=x[!train,])
+mean((modifydata$nextbook[!train] - yhat)^2)
+```
+
+```{r}
+par(mfrow=c(2,4))
+for(i in 9:23){
+hist(modifydata[,i])
+}
+```
+```{r}
+#stepwise model 
+#mean 2094.426 
+fit9 = glm(nextbook ~ factor(hotel_id)+logbook + bookings + volume + time + respond *(tailor + defensive + invitecont + explain + nonverbal + apology + compensate + chanchange + gratitude + info + personalize + signame + sigmanager + sigdepart + sighotel + sigstaff), family=poisson,data=modifydata,subset = train)
+vif(fit2)
+fit10 = step(fit9)
+yhat = predict(fit10, modifydata[!train,],type='response')
+mean((modifydata$nextbook[!train] - yhat)^2)  # compute test set MSE
+#summary(fit)
+```
+```{r}
+vif(fit10)
+```
+```{r}
+fit12= glm(nextbook ~ 1, newdat, family=poisson, subset = train)
+fit11 = step(fit12, scope=~ 
+        hotel_id
+        +logbook+sqrt(logbook)+log(logbook)+I(logbook^2)
+        +bookings+sqrt(bookings)+log(bookings)+I(bookings^2)
+        +volume+sqrt(volume)+log(volume)+I(volume^2)
+        +time+sqrt(time)+log(time)+I(time^2)
+        +respond+sqrt(respond)+log(respond)+I(respond^2)
+        +tailor+sqrt(tailor)+log(tailor)+I(tailor^2)   #tailor
+        +defensive+sqrt(defensive)+log(defensive)+I(defensive^2)
+        +invitecont+sqrt(invitecont)+log(invitecont)+I(invitecont^2)
+        +explain+sqrt(explain)+log(explain)+I(explain^2)
+        +nonverbal+sqrt(nonverbal)+log(nonverbal)+I(nonverbal^2)
+        +apology+sqrt(apology)+log(apology)+I(apology^2)
+        +compensate+sqrt(compensate)+log(compensate)+I(compensate^2)
+        +chanchange+sqrt(chanchange)+log(chanchange)+I(chanchange^2)
+        +gratitude+sqrt(gratitude)+log(gratitude)+I(gratitude^2)
+        +info+sqrt(info)+log(info)+I(info^2)
+        +personalize+sqrt(personalize)+log(personalize)+I(personalize^2)
+        +signame+sqrt(signame)+log(signame)+I(signame^2)
+        +sigdepart+sqrt(sigdepart)+log(sigdepart)+I(sigdepart^2)
+        +sighotel+sqrt(sighotel)+log(sighotel)+I(sighotel^2)
+        +sigmanager+sqrt(sigmanager)+log(sigmanager)+I(sigmanager^2)
+        +sigstaff+sqrt(sigstaff)+log(sigstaff)+I(sigstaff^2))
+plot(fit11, pch=16, cex=.5)        
+yhat = predict(fit11, modifydata[!train,])
+mean((modifydata$nextbook[!train] - yhat)^2)
+```
+
