@@ -1,0 +1,164 @@
+---
+title: "main"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+##question 1
+#sigstaff and sigdepart are highly corrolated.
+```{r}
+library(glmnet);library(car)
+#modify the path
+newdat = read.csv("/Users/zhouzhengbo/Downloads/423/webcare.csv")
+modifydata = newdat[,3:25]
+
+
+#train = runif(nrow(modifydata))<.8 
+#train = runif(nrow(modifydata))<.5
+#modify the path 
+cor(newdat[c(21,22,23,24,25)])
+
+```
+##question 2
+```{r}
+#modify the original dataset
+#new = subset(modifydata,modifydata$hotel_id==1)
+new = modifydata
+new$hotel_id_1 = as.numeric(new$hotel_id==1)
+new$hotel_id_2 = as.numeric(new$hotel_id==2)
+new$hotel_id_3 = as.numeric(new$hotel_id==3)
+new$hotel_id_4 = as.numeric(new$hotel_id==4)
+new$hotel_id_5 = as.numeric(new$hotel_id==5)
+new$hotel_id_6 = as.numeric(new$hotel_id==6)
+new = new[,2:29]
+set.seed(12345)
+train = runif(nrow(new))<0.9
+
+cor(new[,7:28])
+```
+```{r}
+cor(new,new$nextbook)
+```
+##question 4
+#Fit a regression with all of the original variables.
+```{r}
+# 0.5 1671.86 1258.592 0.6 1736.119 1269.235 0.7 1951.697 1218.618 0.8 2064.923 1259.176 0.9 1488.323 1402.038
+fit1 = glm(nextbook ~ ., family=poisson,data=new,subset = train)
+summary(fit1)
+vif(fit1)
+yhat = predict(fit1, new[!train,],type='response')
+mean((new$nextbook[!train] - yhat)^2) #test accuracy 
+yhat = predict(fit1, new[train,],type='response')
+mean((new$nextbook[train] - yhat)^2) #train accuracy
+```
+```{r}
+#0.5 1640.22 1258.592 0.6 1691.609 1269.235 0.7 1905.054 1218.618 0.8 2049.946 1259.176 0.9 1491.459 1402.038
+fit2 = glm(nextbook ~ .-tailor-sigstaff-sigmanager, family=poisson,data=new,subset = train)
+plot(fit2, which=1, pch=16, cex=.8)
+yhat = predict(fit2, new[!train,],type='response')
+mean((new$nextbook[!train] - yhat)^2) #test accuracy
+yhat = predict(fit1, new[train,],type='response')
+mean((new$nextbook[train] - yhat)^2) #train accuracy
+summary(fit2)
+vif(fit2)
+```
+```{r}
+#stepwise model
+# 0.5 1670.724 1258.592 0.6 1729.057 1269.235 0.7 1939.404 1218.618 0.8 2055.107 1259.176  0.9 1487.682 1402.038
+fit3 = step(fit1)
+yhat = predict(fit3, new[!train,],type='response')
+mean((new$nextbook[!train] - yhat)^2)        # compute test set MSE
+yhat = predict(fit1, new[train,],type='response')
+mean((new$nextbook[train] - yhat)^2) #train accuracy
+summary(fit3)
+vif(fit3)
+```
+
+```{r}
+#ridge model
+# mean is 0.5 1764.544 1344.087 0.6 1632.296 1403.342 0.7 1820.7 1339.77 0.8 1999.672 1357.956 0.9 1434.843 1475.753
+x = model.matrix(nextbook ~ ., new)
+fit.ridge = glmnet(x[train,], new$nextbook[train], alpha=0) # alpha=0 means ridge
+plot(fit.ridge, xvar="lambda")
+fit.cv = cv.glmnet(x[train,], new$nextbook[train], alpha=0) # find optimal lambda
+fit.cv$lambda.min        # optimal value of lambda
+abline(v=log(fit.cv$lambda.min), col=2)
+plot(fit.cv)          # plot MSE vs. log(lambda)
+yhat = predict(fit.ridge, s=fit.cv$lambda.min, newx=x[!train,])  # find yhat for best model
+mean((new$nextbook[!train] - yhat)^2)      # compute test set MSE
+yhat = predict(fit.ridge, s=fit.cv$lambda.min, newx=x[train,]) 
+mean((new$nextbook[train] - yhat)^2) #compute train set
+fit.ridge = glmnet(x[train,], new$nextbook[train], alpha=0, lambda = fit.cv$lambda.min)
+fit.ridge$beta
+```
+```{r}
+#lasso model
+#mean 0.5 1606.884 1335.802 0.6 1564.668 1374.896 0.7 1750.989 1303.157 0.8 1906.392 1324.182  0.9 1531.778 1430.975
+fit.lasso = glmnet(x[train,], new$nextbook[train], alpha=1) # lambda=1 means lasso
+plot(fit.lasso, xvar="lambda")
+fit.cv = cv.glmnet(x[train,], new$nextbook[train], alpha=1)
+plot(fit.cv)
+abline(v=log(fit.cv$lambda.min), col=2)
+abline(v=log(fit.cv$lambda.1se), col=3)
+yhat = predict(fit.lasso, s=fit.cv$lambda.min, newx=x[!train,])
+mean((new$nextbook[!train] - yhat)^2) #test set
+yhat = predict(fit.lasso, s=fit.cv$lambda.min, newx=x[train,])
+mean((new$nextbook[train] - yhat)^2) # train set
+summary(fit.lasso)
+fit.lasso = glmnet(x[train,], new$nextbook[train], alpha=1, lambda = fit.cv$lambda.min)
+fit.lasso$beta
+```
+```{r}
+train_1 = subset(modifydata,modifydata$hotel_id==1)
+fit11 = glm(nextbook ~ ., family=poisson,data=train_1)
+fit12 = step(fit11)
+summary(fit12)
+```
+```{r}
+#test 0.9 1632.01
+fit13 = glm(nextbook ~ logbook + bookings + volume + time + respond +(hotel_id_3+hotel_id_6)*tailor + defensive + invitecont*(hotel_id_6+hotel_id_4) + explain + nonverbal + apology + compensate + chanchange + gratitude + info + personalize + signame*(hotel_id_3+hotel_id_4+hotel_id_5+hotel_id_6) + sigmanager + (hotel_id_4+hotel_id_5)*sigdepart + sighotel + (hotel_id_4+hotel_id_1)*sigstaff, family=poisson,data=new,subset = train)
+
+fit14 = step(fit13)
+yhat = predict(fit14, new[!train,],type='response')
+mean((new$nextbook[!train] - yhat)^2)
+
+```
+```{r}
+#for full model 
+# 0.5 1671.86 1258.592 0.6 1736.119 1269.235 0.7 1951.697 1218.618 0.8 2064.923 1259.176 0.9 1488.323 1402.038
+split_rate = c(0.5,0.6,0.7,0.8,0.9)
+train_loss = c(1335.802,1374.896,1303.157,1324.182,1430.975)
+train_loss_lasso = c(1258.592,1269.235,1218.618,1259.176,1402.038)
+test_loss = c(1671.86,1736.119,1951.697,2064.923,1488.323)
+test_loss_lasso = c(1606.884,1564.668,1750.989,1906.392,1531.778)
+plot(test_loss ~ split_rate, type = "l")
+#points(split_rate,train_loss)
+lines(test_loss_lasso~split_rate,col='red')
+plot(train_loss ~ split_rate, type = "l")
+lines(train_loss_lasso~split_rate,col='red')
+```
+
+
