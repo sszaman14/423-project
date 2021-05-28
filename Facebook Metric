@@ -1,0 +1,15 @@
+title: facebookMetric
+
+output: html_document
+
+
+library(cars)
+
+fbmetric = read.csv2("C:/Users/0t9340/Documents/Northwestern MEM/MSIT 423 - Data Science for Business Intelligence/Final Project/dataset_Facebook.csv", header = TRUE, sep = ";")
+
+summary(fbmetric) 
+
+names(fbmetric)
+dim(fbmetric)
+
+round(cor(fbmetric),4)
